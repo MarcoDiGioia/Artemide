@@ -1116,3 +1116,354 @@ body {
         transform: translateX(-100%);
     }
 }
+
+/* =========================================================
+   Apollonio Console Shell — Hover Drawer, OSK & Auto-Launch
+========================================================= */
+.shell-hover-zone {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 18px;
+    height: 100vh;
+    z-index: 950;
+    display: none;
+    align-items: center;
+    justify-content: flex-start;
+    cursor: pointer;
+    background: linear-gradient(90deg, rgba(0, 163, 198, 0.18) 0%, rgba(0, 0, 0, 0) 100%);
+    opacity: 0.35;
+    transition: opacity 0.2s ease, width 0.2s ease;
+}
+.shell-hover-zone.is-streaming {
+    display: flex;
+}
+.shell-hover-zone:hover {
+    width: 28px;
+    opacity: 1;
+    background: linear-gradient(90deg, rgba(0, 163, 198, 0.45) 0%, rgba(0, 0, 0, 0) 100%);
+}
+.shell-hover-pill {
+    width: 5px;
+    height: 92px;
+    margin-left: 4px;
+    border-radius: 6px;
+    background: rgba(0, 210, 255, 0.85);
+    box-shadow: 0 0 10px rgba(0, 210, 255, 0.7);
+}
+
+.shell-drawer-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1050;
+    background: rgba(6, 8, 14, 0.62);
+    backdrop-filter: blur(6px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.shell-drawer-overlay.is-open {
+    opacity: 1;
+    pointer-events: auto;
+}
+.shell-drawer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 470px;
+    max-width: 88vw;
+    height: 100vh;
+    background: linear-gradient(180deg, #171b26 0%, #10131b 100%);
+    border-right: 1px solid rgba(0, 195, 255, 0.28);
+    box-shadow: 12px 0 38px rgba(0, 0, 0, 0.75);
+    padding: 26px 24px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    transform: translateX(-104%);
+    transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+    color: #eef2f9;
+    overflow-y: auto;
+}
+.shell-drawer-overlay.is-open .shell-drawer {
+    transform: translateX(0);
+}
+.shell-drawer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+}
+.shell-drawer-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.shell-brand-dot {
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    background: #00d2ff;
+    box-shadow: 0 0 10px #00d2ff;
+}
+.shell-brand-title {
+    font-size: 1.18rem;
+    font-weight: 700;
+    letter-spacing: 1.6px;
+    color: #ffffff;
+}
+.shell-status-pill {
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(0, 163, 198, 0.22);
+    border: 1px solid rgba(0, 210, 255, 0.55);
+    color: #7ce8ff;
+}
+.shell-now-playing-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 12px;
+    padding: 12px;
+}
+.shell-art-wrapper {
+    width: 68px;
+    height: 96px;
+    border-radius: 8px;
+    overflow: hidden;
+    flex-shrink: 0;
+    background: #0d1017;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+.shell-art-wrapper img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.shell-now-playing-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+.shell-now-playing-label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    color: #00d2ff;
+}
+.shell-now-playing-title {
+    font-size: 1.32rem;
+    font-weight: 700;
+    color: #ffffff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.shell-now-playing-sub {
+    font-size: 0.95rem;
+    color: #9aa4b8;
+}
+.shell-section-title {
+    font-size: 0.84rem;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    color: #8c96ab;
+    margin-top: 4px;
+}
+.shell-actions-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.shell-action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 11px 14px;
+    border-radius: 10px;
+    background: #232838;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    color: #eef2f9;
+    font-size: 1.08rem;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.14s ease, transform 0.12s ease, box-shadow 0.14s ease;
+}
+.shell-action-btn:hover,
+.shell-action-btn:focus,
+.shell-action-btn.hovered {
+    background: #2f374e;
+    border-color: #00d2ff;
+    box-shadow: 0 0 0 2px rgba(0, 210, 255, 0.55);
+    outline: none;
+    transform: translateX(3px);
+}
+.shell-btn-icon {
+    width: 28px;
+    font-size: 1.2rem;
+    color: #00d2ff;
+    flex-shrink: 0;
+}
+.shell-btn-text {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.shell-btn-tag {
+    font-size: 0.8rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.35);
+    color: #b8c4d9;
+    margin-left: 8px;
+}
+.shell-btn-warn .shell-btn-icon {
+    color: #ffb74d;
+}
+.shell-btn-danger .shell-btn-icon {
+    color: #ff6b6b;
+}
+.shell-window-list {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    max-height: 190px;
+    overflow-y: auto;
+}
+.shell-window-item {
+    padding: 9px 12px;
+}
+.shell-win-role {
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 5px;
+    margin-right: 10px;
+    background: rgba(0, 210, 255, 0.18);
+    color: #6fe3ff;
+}
+.shell-win-title {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.shell-drawer-footer {
+    margin-top: auto;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    font-size: 0.88rem;
+    color: #8f9bb3;
+    text-align: center;
+}
+
+/* Virtual On-Screen Keyboard */
+.vkbd-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1100;
+    display: none;
+    align-items: flex-end;
+    justify-content: center;
+    padding-bottom: 36px;
+    background: rgba(0, 0, 0, 0.45);
+}
+.vkbd-overlay.is-open {
+    display: flex;
+}
+.vkbd-panel {
+    width: 880px;
+    max-width: 94vw;
+    background: rgba(20, 24, 34, 0.96);
+    border: 1px solid rgba(0, 210, 255, 0.35);
+    border-radius: 16px;
+    padding: 18px 22px;
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.85);
+    color: #ffffff;
+}
+.vkbd-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+.vkbd-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    color: #00d2ff;
+}
+.vkbd-preview {
+    font-size: 0.92rem;
+    color: #a5b1c6;
+}
+.vkbd-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.vkbd-row {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+}
+.vkbd-key {
+    min-width: 58px;
+    height: 52px;
+    padding: 0 12px;
+    border-radius: 8px;
+    background: #283044;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+    font-size: 1.15rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.vkbd-key.vkbd-wide {
+    min-width: 110px;
+}
+.vkbd-key.vkbd-space {
+    min-width: 280px;
+}
+.vkbd-key:hover,
+.vkbd-key:focus,
+.vkbd-key.hovered {
+    background: #00a3c6;
+    border-color: #7ce8ff;
+    box-shadow: 0 0 0 2px rgba(0, 210, 255, 0.7);
+    outline: none;
+}
+
+/* Auto-Launch Badge on App Cards */
+.auto-launch-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 5;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(0, 163, 198, 0.92);
+    border: 1px solid #84ebff;
+    color: #ffffff;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+    pointer-events: auto;
+    cursor: pointer;
+}

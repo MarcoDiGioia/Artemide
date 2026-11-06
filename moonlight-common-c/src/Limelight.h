@@ -472,6 +472,17 @@ typedef void(*ConnListenerSetMotionEventState)(uint16_t controllerNumber, uint8_
 // This callback is invoked to set a controller's RGB LED (if present).
 typedef void(*ConnListenerSetControllerLED)(uint16_t controllerNumber, uint8_t r, uint8_t g, uint8_t b);
 
+// This callback is invoked when an Apollonio Console Shell message (0x3101, 0x3103, 0x3104) arrives.
+typedef void(*ConnListenerShellMessage)(unsigned short opcode, const char* jsonPayload, int length);
+
+#define SHELL_PKT_HELLO       0x3100
+#define SHELL_PKT_STATE       0x3101
+#define SHELL_PKT_CMD         0x3102
+#define SHELL_PKT_CURSOR_HINT 0x3103
+#define SHELL_PKT_EVENT       0x3104
+
+int LiSendShellMessage(unsigned short opcode, const char* jsonPayload);
+
 typedef struct _CONNECTION_LISTENER_CALLBACKS {
     ConnListenerStageStarting stageStarting;
     ConnListenerStageComplete stageComplete;
@@ -485,6 +496,7 @@ typedef struct _CONNECTION_LISTENER_CALLBACKS {
     ConnListenerRumbleTriggers rumbleTriggers;
     ConnListenerSetMotionEventState setMotionEventState;
     ConnListenerSetControllerLED setControllerLED;
+    ConnListenerShellMessage shellMessage;
 } CONNECTION_LISTENER_CALLBACKS, *PCONNECTION_LISTENER_CALLBACKS;
 
 // Use this function to zero the connection callbacks when allocated on the stack or heap

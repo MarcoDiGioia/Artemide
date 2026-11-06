@@ -774,6 +774,10 @@
             <span class="navGuideRemoteText" data-i18n="YELLOW">YELLOW</span> / <span class="navGuideKeyboardText" data-i18n="F3">F3</span> / <span class="navGuideKeyboardText" data-i18n="CTRL + ALT + SHIFT + S">CTRL + ALT + SHIFT + S</span> / <span class="navGuideGamepadText" data-i18n="SELECT + LB + RB + X">SELECT + LB + RB + X</span>
             <span data-i18n="— Toggle the performance statistics overlay.">— Toggle the performance statistics overlay.</span>
           </li>
+          <li class="navGuideDialogControls">
+            <span class="navGuideGamepadText">SELECT + START (800ms)</span> / <span class="navGuideKeyboardText">LEFT EDGE HOVER</span>
+            <span>— Open the Apollonio Console Shell Quick Drawer &amp; Task Switcher.</span>
+          </li>
         </ul>
       </div>
       <div class="mdl-dialog__actions">
@@ -839,6 +843,103 @@
     <button type="button" id="snackButton" class="mdl-snackbar__action"></button>
     <!-- This button exists to suppress the snackbar warning, we're really using a toast -->
   </div>
+
+  <!-- Apollonio Console Shell: Left-Edge Hover Trigger Zone -->
+  <div id="shell-drawer-hover-zone" class="shell-hover-zone" title="Apollonio Console Quick Menu (Hold Select+Start or Hover)">
+    <div class="shell-hover-pill"></div>
+  </div>
+
+  <!-- Apollonio Console Shell: Slide-Out Quick Menu & Task Switcher Drawer -->
+  <div id="shell-drawer-overlay" class="shell-drawer-overlay">
+    <aside id="shell-drawer" class="shell-drawer" aria-label="Console Quick Menu">
+      <div class="shell-drawer-header">
+        <div class="shell-drawer-brand">
+          <span class="shell-brand-dot"></span>
+          <span class="shell-brand-title">APOLLONIO CONSOLE</span>
+        </div>
+        <span id="shell-cursor-badge" class="shell-status-pill">GAMEPAD</span>
+      </div>
+
+      <div class="shell-now-playing-card">
+        <div class="shell-art-wrapper">
+          <img id="shell-active-art" src="static/res/no_app_image.png" alt="Active App Cover">
+        </div>
+        <div class="shell-now-playing-meta">
+          <div class="shell-now-playing-label">NOW RUNNING</div>
+          <div id="shell-active-title" class="shell-now-playing-title">Steam Big Picture</div>
+          <div id="shell-active-subtitle" class="shell-now-playing-sub">Base Dashboard • Ready</div>
+        </div>
+      </div>
+
+      <div class="shell-section-title">QUICK ACTIONS</div>
+      <div id="shell-actions-list" class="shell-actions-grid">
+        <button type="button" id="shellBtnReturnHome" class="shell-action-btn" data-shell-idx="0">
+          <span class="shell-btn-icon">⌂</span>
+          <span class="shell-btn-text">Return Home (Big Picture)</span>
+          <span class="shell-btn-tag">Duck 15%</span>
+        </button>
+        <button type="button" id="shellBtnResumeGame" class="shell-action-btn" data-shell-idx="1">
+          <span class="shell-btn-icon">▶</span>
+          <span class="shell-btn-text">Resume Active Game</span>
+          <span class="shell-btn-tag">100% Vol</span>
+        </button>
+        <button type="button" id="shellBtnVirtualKeyboard" class="shell-action-btn" data-shell-idx="2">
+          <span class="shell-btn-icon">⌨</span>
+          <span class="shell-btn-text">On-Screen Keyboard</span>
+          <span class="shell-btn-tag">OSK</span>
+        </button>
+        <button type="button" id="shellBtnMouseMode" class="shell-action-btn" data-shell-idx="3">
+          <span class="shell-btn-icon">⌖</span>
+          <span class="shell-btn-text">Input Mode</span>
+          <span id="shellMouseModeTag" class="shell-btn-tag">AUTO</span>
+        </button>
+        <button type="button" id="shellBtnAudioDuck" class="shell-action-btn" data-shell-idx="4">
+          <span class="shell-btn-icon">♪</span>
+          <span class="shell-btn-text">Game Audio Ducking</span>
+          <span id="shellAudioDuckTag" class="shell-btn-tag">OFF</span>
+        </button>
+        <button type="button" id="shellBtnPerfStats" class="shell-action-btn" data-shell-idx="5">
+          <span class="shell-btn-icon">📊</span>
+          <span class="shell-btn-text">Performance Overlay</span>
+          <span class="shell-btn-tag">HUD</span>
+        </button>
+        <button type="button" id="shellBtnForceKill" class="shell-action-btn shell-btn-warn" data-shell-idx="6">
+          <span class="shell-btn-icon">✕</span>
+          <span class="shell-btn-text">Force Close Active Game</span>
+          <span class="shell-btn-tag">KILL</span>
+        </button>
+        <button type="button" id="shellBtnDisconnect" class="shell-action-btn shell-btn-danger" data-shell-idx="7">
+          <span class="shell-btn-icon">⏻</span>
+          <span class="shell-btn-text">Disconnect Stream</span>
+          <span class="shell-btn-tag">EXIT</span>
+        </button>
+      </div>
+
+      <div class="shell-section-title">ACTIVE WINDOWS (TASK SWITCHER)</div>
+      <div id="shell-window-list" class="shell-window-list">
+        <button type="button" class="shell-window-item shell-action-btn" data-window-id="base:0">
+          <span class="shell-win-role">BASE</span>
+          <span class="shell-win-title">Steam Big Picture</span>
+        </button>
+      </div>
+
+      <div class="shell-drawer-footer">
+        <span>Hold <b>Select + Start</b> (800ms) or press <b>Back / B</b> to close</span>
+      </div>
+    </aside>
+  </div>
+
+  <!-- Apollonio Console Shell: Virtual On-Screen Keyboard Overlay -->
+  <div id="virtual-keyboard-overlay" class="vkbd-overlay">
+    <div id="virtual-keyboard-panel" class="vkbd-panel">
+      <div class="vkbd-header">
+        <span class="vkbd-title">VIRTUAL KEYBOARD</span>
+        <span id="vkbd-preview" class="vkbd-preview">Press A/Enter to send key • B/Back to close</span>
+      </div>
+      <div id="vkbd-rows" class="vkbd-rows"></div>
+    </div>
+  </div>
+
   <video id="wasm_module" autoplay tabindex="-1"></video>
 </body>
 </html>

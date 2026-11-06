@@ -75,8 +75,11 @@ MoonlightInstance::~MoonlightInstance() {
 }
 
 void MoonlightInstance::OnConnectionStarted(uint32_t unused) {
+  setShellInputCapture(false);
   // Tell the front end
   PostToJs(std::string("Connection Established"));
+  // Perform Apollonio Console Shell handshake (0x3100 SHELL_HELLO)
+  LiSendShellMessage(SHELL_PKT_HELLO, "{\"version\":1,\"client\":\"Artemide-Tizen\",\"drawer\":true}");
 }
 
 void MoonlightInstance::OnConnectionStopped(uint32_t error) {
@@ -718,6 +721,10 @@ void wakeOnLan(int callbackId, std::string macAddress) {
   g_Instance->WakeOnLan(callbackId, macAddress);
 }
 
+void sendShellCommand(std::string json) {
+  LiSendShellMessage(SHELL_PKT_CMD, json.c_str());
+}
+
 void PostToJs(std::string msg) {
   MAIN_THREAD_EM_ASM({
     const msg = UTF8ToString($0);
@@ -757,4 +764,7 @@ EMSCRIPTEN_BINDINGS(handle_message) {
   emscripten::function("stun", &stun);
   emscripten::function("pair", &pair);
   emscripten::function("wakeOnLan", &wakeOnLan);
+  emscripten::function("sendShellCommand", &sendShellCommand);
+  emscripten::function("setShellInputCapture", &setShellInputCapture);
+  emscripten::function("setShellMouseMode", &setShellMouseMode);
 }

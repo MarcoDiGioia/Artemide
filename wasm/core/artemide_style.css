@@ -1,0 +1,344 @@
+/**
+ * @file core/artemide_style.css
+ * @brief Platform-agnostic stylesheet for Artemide Console Shell (Drawer, Switcher, OSK).
+ */
+
+/* 1. Left-edge hover zone */
+#artemide-hover-zone {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 24px;
+  height: 100vh;
+  z-index: 999998;
+  background: transparent;
+  pointer-events: auto;
+}
+
+/* 2. Slide-out Console Drawer */
+#artemide-drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 380px;
+  max-width: 90vw;
+  height: 100vh;
+  z-index: 999999;
+  background: rgba(14, 18, 28, 0.94);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-right: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 8px 0 32px rgba(0, 0, 0, 0.7);
+  display: flex;
+  flex-direction: column;
+  padding: 24px 20px;
+  box-sizing: border-box;
+  font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: #f1f3f5;
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  transform: translateX(-100%);
+  pointer-events: auto;
+}
+
+#artemide-drawer.artemide-drawer-open {
+  transform: translateX(0);
+}
+
+#artemide-drawer.artemide-drawer-closed {
+  transform: translateX(-100%);
+}
+
+/* Header */
+.artemide-drawer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.artemide-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.artemide-logo {
+  font-size: 28px;
+}
+
+.artemide-titles {
+  display: flex;
+  flex-direction: column;
+}
+
+.artemide-title {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  color: #38bdf8;
+  text-transform: uppercase;
+}
+
+.artemide-subtitle {
+  font-size: 12px;
+  color: #94a3b8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 220px;
+}
+
+.artemide-close-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: background 0.2s, color 0.2s;
+}
+
+.artemide-close-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+/* Actions Grid */
+.artemide-drawer-actions {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.artemide-action-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 10px 4px;
+  color: #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 11px;
+  transition: all 0.2s ease;
+}
+
+.artemide-action-btn .icon {
+  font-size: 18px;
+}
+
+.artemide-action-btn:hover {
+  background: rgba(56, 189, 248, 0.18);
+  border-color: #38bdf8;
+  color: #fff;
+  transform: translateY(-2px);
+}
+
+/* Section Title */
+.artemide-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  color: #64748b;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+/* Task Switcher Window List */
+.artemide-window-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-right: 4px;
+}
+
+.artemide-window-empty {
+  padding: 24px 12px;
+  text-align: center;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.artemide-window-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.artemide-window-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(56, 189, 248, 0.5);
+  transform: translateX(4px);
+}
+
+.artemide-window-item.focused {
+  background: rgba(56, 189, 248, 0.15);
+  border-color: #38bdf8;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.25);
+}
+
+.artemide-window-title {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-right: 8px;
+}
+
+.artemide-role-badge {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  margin-right: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #cbd5e1;
+}
+
+.artemide-role-badge.base {
+  background: #f59e0b;
+  color: #1e1e1e;
+}
+
+.artemide-role-badge.game {
+  background: #10b981;
+  color: #fff;
+}
+
+.artemide-kill-btn {
+  background: transparent;
+  border: none;
+  color: #ef4444;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.artemide-kill-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
+}
+
+/* 3. Virtual On-Screen Keyboard */
+#artemide-keyboard-overlay {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 860px;
+  max-width: 95vw;
+  background: rgba(15, 23, 42, 0.96);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-bottom: none;
+  border-radius: 16px 16px 0 0;
+  box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.7);
+  z-index: 1000000;
+  padding: 16px 20px 24px;
+  box-sizing: border-box;
+  font-family: inherit;
+  transition: transform 0.25s ease-out, opacity 0.25s ease-out;
+}
+
+#artemide-keyboard-overlay.artemide-keyboard-hidden {
+  transform: translate(-50%, 100%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+#artemide-keyboard-overlay.artemide-keyboard-visible {
+  transform: translate(-50%, 0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.artemide-keyboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  color: #94a3b8;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.artemide-keyboard-close {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.artemide-keyboard-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.artemide-keyboard-row {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+}
+
+.artemide-key {
+  flex: 1;
+  height: 48px;
+  min-width: 44px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  color: #f8fafc;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.artemide-key:hover {
+  background: rgba(56, 189, 248, 0.25);
+  border-color: #38bdf8;
+  color: #fff;
+  transform: translateY(-2px);
+}
+
+.artemide-key:active {
+  transform: translateY(1px);
+  background: rgba(56, 189, 248, 0.4);
+}
+
+.artemide-key.wide {
+  flex: 1.6;
+  background: rgba(255, 255, 255, 0.12);
+  font-size: 12px;
+}
+
+.artemide-key.extra-wide {
+  flex: 4;
+  background: rgba(255, 255, 255, 0.1);
+}

@@ -2593,6 +2593,21 @@ function showApps(host) {
 
             // Append the game cell to the game container
             gameContainer.append(gameCell);
+            gameContainer.attr('data-app-id', app.id);
+            gameContainer.attr('data-app-title', app.title);
+
+            if (localStorage.getItem('autoLaunchApp_' + host.serverUid) === String(app.id)) {
+              var autoBadge = $('<div>', {
+                class: 'auto-launch-badge',
+                text: '★ AUTO-LAUNCH',
+                title: 'Press Select / CH+ to toggle Auto-Launch'
+              });
+              autoBadge.on('click', function(ev) {
+                ev.stopPropagation();
+                toggleAutoLaunchForAppCard(gameContainer[0]);
+              });
+              gameContainer.append(autoBadge);
+            }
 
             // Attach the click event listener to the game container
             gameContainer.off('click');
@@ -2694,6 +2709,19 @@ function showApps(host) {
         // Navigate to the Apps view
         showAppsMode();
         resolve();
+
+        // Auto-Launch check when entering Apps view from Host selection
+        var autoLaunchId = localStorage.getItem('autoLaunchApp_' + host.serverUid);
+        if (autoLaunchId && !window._suppressNextAutoLaunch && host.currentGame === 0) {
+          var matchedApp = sortedAppList.find(function(a) { return String(a.id) === String(autoLaunchId); });
+          if (matchedApp) {
+            snackbarLog('Auto-launching ' + matchedApp.title + '...');
+            setTimeout(function() {
+              startGame(host, matchedApp.id);
+            }, 350);
+          }
+        }
+        window._suppressNextAutoLaunch = false;
 
         Promise.all(settledPromises).then(function() {
           // Resume background polling now that all box art downloads are complete
@@ -4867,4 +4895,510 @@ window.addEventListener('gamepaddisconnected', function(e) {
   console.log('%c[index.js, gamepaddisconnected]', 'color: green;', 'Gamepad disconnected:\n' + JSON.stringify(disconnectedGamepad), disconnectedGamepad);
   snackbarLog('Gamepad %1$s has been disconnected.', gamepadIndex);
   console.warn('%c[index.js, gamepaddisconnected]', 'color: green;', 'Warning: Lost connection to gamepad ' + gamepadIndex + '. Please reconnect your gamepad!');
+});
+
+// ============================================================================
+// Apollonio Console Shell — Hover Drawer, Task Switcher, Virtual Keyboard & Auto-Launch
+// ============================================================================
+
+var _shellDrawerOpen = false;
+var _virtualKeyboardOpen = false;
+var _shellMouseMode = 'AUTO'; // 'AUTO' | 'POINTER' | 'CONTROLLER'
+var _shellHoverTimer = null;
+var _shellLastState = {
+  active_app: 'Steam Big Picture',
+  game_id: '0',
+  active_game_pid: 0,
+  base_provider: 'Steam',
+  cursor_mode: 'CONTROLLER',
+  audio_ducked: false,
+  windows: []
+};
+
+function sendShellCmd(action, targetId, value) {
+  var payload = JSON.stringify({
+    action: action,
+    target_id: targetId || '',
+    value: value || ''
+  });
+  try {
+    if (typeof Module !== 'undefined' && typeof Module.sendShellCommand === 'function') {
+      Module.sendShellCommand(payload);
+      return;
+    }
+  } catch (err) {
+    console.warn('[ShellDrawer] Module.sendShellCommand error:', err);
+  }
+  // Direct HTTP communication with Apollonio Companion (port 47999) or Sunshine (47989)
+  if (api && api.address) {
+    var primaryPort = 47999;
+    var fallbackPort = api.httpPort || 47989;
+    var query = '?action=' + encodeURIComponent(action || '') +
+      '&target_id=' + encodeURIComponent(targetId || '') +
+      '&value=' + encodeURIComponent(value || '');
+
+    fetch('http://' + api.address + ':' + primaryPort + '/shell/cmd' + query)
+      .then(function(r) { return r.json(); })
+      .then(function(st) { updateShellDrawerDOM(st); })
+      .catch(function() {
+        if (fallbackPort !== primaryPort) {
+          fetch('http://' + api.address + ':' + fallbackPort + '/shell/cmd' + query)
+            .then(function(r) { return r.json(); })
+            .then(function(st) { updateShellDrawerDOM(st); })
+            .catch(function() {});
+        }
+      });
+  }
+}
+
+function fetchShellStateHttpFallback() {
+  if (!api || !api.address) return;
+  var primaryPort = 47999;
+  var fallbackPort = api.httpPort || 47989;
+
+  fetch('http://' + api.address + ':' + primaryPort + '/shell/state')
+    .then(function(r) { return r.json(); })
+    .then(function(st) { updateShellDrawerDOM(st); })
+    .catch(function() {
+      if (fallbackPort !== primaryPort) {
+        fetch('http://' + api.address + ':' + fallbackPort + '/shell/state')
+          .then(function(r) { return r.json(); })
+          .then(function(st) { updateShellDrawerDOM(st); })
+          .catch(function() {});
+      }
+    });
+}
+
+function toggleAutoLaunchForAppCard(cardEl) {
+  if (!cardEl || !api || !api.serverUid) {
+    return;
+  }
+  var appId = cardEl.getAttribute('data-app-id');
+  var appTitle = cardEl.getAttribute('data-app-title') || 'App';
+  if (!appId) {
+    return;
+  }
+  var key = 'autoLaunchApp_' + api.serverUid;
+  var current = localStorage.getItem(key);
+  $('#game-grid .auto-launch-badge').remove();
+
+  if (String(current) === String(appId)) {
+    localStorage.removeItem(key);
+    snackbarLog('Auto-Launch disabled for ' + appTitle);
+  } else {
+    localStorage.setItem(key, String(appId));
+    var badge = $('<div>', {
+      class: 'auto-launch-badge',
+      text: '★ AUTO-LAUNCH',
+      title: 'Press Select / CH+ to toggle Auto-Launch'
+    });
+    badge.on('click', function(ev) {
+      ev.stopPropagation();
+      toggleAutoLaunchForAppCard(cardEl);
+    });
+    $(cardEl).append(badge);
+    snackbarLog('Auto-Launch enabled for ' + appTitle);
+  }
+}
+
+function updateShellDrawerDOM(state) {
+  if (!state) return;
+  _shellLastState = Object.assign(_shellLastState, state);
+
+  var titleEl = document.getElementById('shell-active-title');
+  var subEl = document.getElementById('shell-active-subtitle');
+  var artEl = document.getElementById('shell-active-art');
+  var badgeEl = document.getElementById('shell-cursor-badge');
+  var duckTag = document.getElementById('shellAudioDuckTag');
+  var mouseTag = document.getElementById('shellMouseModeTag');
+
+  if (titleEl) {
+    titleEl.textContent = _shellLastState.active_app || 'Steam Big Picture';
+  }
+  if (subEl) {
+    var provider = _shellLastState.base_provider || 'Steam';
+    var pidInfo = _shellLastState.active_game_pid ? ('PID ' + _shellLastState.active_game_pid) : 'Base Dashboard';
+    subEl.textContent = provider + ' • ' + pidInfo + (_shellLastState.audio_ducked ? ' • Ducked 15%' : '');
+  }
+  if (badgeEl) {
+    badgeEl.textContent = (_shellLastState.cursor_mode === 'POINTER') ? 'MOUSE' : 'GAMEPAD';
+  }
+  if (duckTag) {
+    duckTag.textContent = _shellLastState.audio_ducked ? '15%' : 'OFF';
+  }
+  if (mouseTag) {
+    mouseTag.textContent = _shellMouseMode;
+  }
+
+  // Update artwork from Apollonio /shell/asset?appid=<game_id>
+  if (artEl && api && api.address) {
+    var gid = _shellLastState.game_id || (api.currentGame ? String(api.currentGame) : '0');
+    var httpPort = api.httpPort || 47989;
+    var desiredSrc = (gid && gid !== '0')
+      ? ('http://' + api.address + ':' + httpPort + '/shell/asset?appid=' + encodeURIComponent(gid))
+      : 'static/res/no_app_image.png';
+    if (artEl.getAttribute('data-shell-src') !== desiredSrc) {
+      artEl.setAttribute('data-shell-src', desiredSrc);
+      artEl.onerror = function() {
+        artEl.src = 'static/res/no_app_image.png';
+      };
+      artEl.src = desiredSrc;
+    }
+  }
+
+  // Update Task Switcher window list
+  var winListEl = document.getElementById('shell-window-list');
+  if (winListEl && Array.isArray(_shellLastState.windows)) {
+    winListEl.innerHTML = '';
+    var wins = _shellLastState.windows.length > 0 ? _shellLastState.windows : [
+      { id: 'base:0', role: 'BASE', title: 'Steam Big Picture', focused: true }
+    ];
+    wins.forEach(function(w) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'shell-window-item shell-action-btn';
+      btn.setAttribute('data-window-id', w.id || '');
+      var roleSpan = document.createElement('span');
+      roleSpan.className = 'shell-win-role';
+      roleSpan.textContent = w.role || 'APP';
+      var titleSpan = document.createElement('span');
+      titleSpan.className = 'shell-win-title';
+      titleSpan.textContent = (w.title || w.exe || 'Window') + (w.focused ? ' • Active' : '');
+      btn.appendChild(roleSpan);
+      btn.appendChild(titleSpan);
+      btn.addEventListener('click', function() {
+        if (w.role === 'BASE') {
+          sendShellCmd('RETURN_HOME', w.id);
+        } else {
+          sendShellCmd('SWITCH_WINDOW', w.id);
+        }
+        closeShellDrawer();
+      });
+      winListEl.appendChild(btn);
+    });
+  }
+}
+
+function handleShellStateMessage(jsonStr) {
+  try {
+    var parsed = JSON.parse(jsonStr);
+    updateShellDrawerDOM(parsed);
+  } catch (e) {
+    console.warn('[ShellDrawer] Invalid ShellState JSON:', e);
+  }
+}
+
+function handleShellCursorHintMessage(jsonStr) {
+  try {
+    var parsed = JSON.parse(jsonStr);
+    if (parsed && parsed.mode) {
+      _shellLastState.cursor_mode = parsed.mode;
+      var badgeEl = document.getElementById('shell-cursor-badge');
+      if (badgeEl) {
+        badgeEl.textContent = (parsed.mode === 'POINTER') ? 'MOUSE' : 'GAMEPAD';
+      }
+    }
+  } catch (e) {
+    console.warn('[ShellDrawer] Invalid CursorHint JSON:', e);
+  }
+}
+
+function handleShellEventMessage(jsonStr) {
+  try {
+    var parsed = JSON.parse(jsonStr);
+    if (parsed && parsed.event === 'GAME_EXITED') {
+      snackbarLog('Returned to ' + (_shellLastState.base_provider || 'Console Home'));
+    }
+  } catch (e) {
+    console.warn('[ShellDrawer] Invalid ShellEvent JSON:', e);
+  }
+}
+
+function openShellDrawer() {
+  if (!isInGame || _shellDrawerOpen) {
+    return;
+  }
+  if (_virtualKeyboardOpen) {
+    closeVirtualKeyboard();
+  }
+  _shellDrawerOpen = true;
+  var overlay = document.getElementById('shell-drawer-overlay');
+  if (overlay) {
+    overlay.classList.add('is-open');
+  }
+  if (typeof Module !== 'undefined' && typeof Module.setShellInputCapture === 'function') {
+    Module.setShellInputCapture(true);
+  } else {
+    fetchShellStateHttpFallback();
+  }
+  updateShellDrawerDOM(_shellLastState);
+  Navigation.push(Views.ShellDrawer);
+  Navigation.start();
+}
+
+function closeShellDrawer() {
+  if (!_shellDrawerOpen) {
+    return;
+  }
+  _shellDrawerOpen = false;
+  var overlay = document.getElementById('shell-drawer-overlay');
+  if (overlay) {
+    overlay.classList.remove('is-open');
+  }
+  Navigation.stop();
+  Navigation.pop();
+  if (typeof Module !== 'undefined' && typeof Module.setShellInputCapture === 'function') {
+    Module.setShellInputCapture(false);
+  }
+  $('#wasm_module').focus();
+}
+
+function toggleShellDrawer() {
+  if (_virtualKeyboardOpen) {
+    closeVirtualKeyboard();
+    return;
+  }
+  if (_shellDrawerOpen) {
+    closeShellDrawer();
+  } else {
+    openShellDrawer();
+  }
+}
+
+function buildVirtualKeyboard() {
+  var rowsContainer = document.getElementById('vkbd-rows');
+  if (!rowsContainer || rowsContainer.children.length > 0) {
+    return;
+  }
+  var layout = [
+    [
+      { label: '1', code: 0x31 }, { label: '2', code: 0x32 }, { label: '3', code: 0x33 },
+      { label: '4', code: 0x34 }, { label: '5', code: 0x35 }, { label: '6', code: 0x36 },
+      { label: '7', code: 0x37 }, { label: '8', code: 0x38 }, { label: '9', code: 0x39 },
+      { label: '0', code: 0x30 }, { label: '⌫', code: 0x08, wide: true }
+    ],
+    [
+      { label: 'Q', code: 0x51 }, { label: 'W', code: 0x57 }, { label: 'E', code: 0x45 },
+      { label: 'R', code: 0x52 }, { label: 'T', code: 0x54 }, { label: 'Y', code: 0x59 },
+      { label: 'U', code: 0x55 }, { label: 'I', code: 0x49 }, { label: 'O', code: 0x4F },
+      { label: 'P', code: 0x50 }, { label: 'ESC', code: 0x1B }
+    ],
+    [
+      { label: 'A', code: 0x41 }, { label: 'S', code: 0x53 }, { label: 'D', code: 0x44 },
+      { label: 'F', code: 0x46 }, { label: 'G', code: 0x47 }, { label: 'H', code: 0x48 },
+      { label: 'J', code: 0x4A }, { label: 'K', code: 0x4B }, { label: 'L', code: 0x4C },
+      { label: 'TAB', code: 0x09 }, { label: 'ENTER', code: 0x0D, wide: true }
+    ],
+    [
+      { label: 'Z', code: 0x5A }, { label: 'X', code: 0x58 }, { label: 'C', code: 0x43 },
+      { label: 'V', code: 0x56 }, { label: 'B', code: 0x42 }, { label: 'N', code: 0x4E },
+      { label: 'M', code: 0x4D }, { label: '.', code: 0xBE }, { label: '-', code: 0xBD },
+      { label: 'SPACE', code: 0x20, space: true }, { label: 'CLOSE', action: 'close', wide: true }
+    ]
+  ];
+
+  layout.forEach(function(row) {
+    var rowEl = document.createElement('div');
+    rowEl.className = 'vkbd-row';
+    row.forEach(function(k) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'vkbd-key' + (k.wide ? ' vkbd-wide' : '') + (k.space ? ' vkbd-space' : '');
+      btn.textContent = k.label;
+      btn.addEventListener('click', function() {
+        if (k.action === 'close') {
+          closeVirtualKeyboard();
+          return;
+        }
+        if (typeof Module !== 'undefined' && typeof Module.sendKeyboardEvent === 'function') {
+          Module.sendKeyboardEvent(k.code, 0x03, 0);
+          setTimeout(function() {
+            Module.sendKeyboardEvent(k.code, 0x04, 0);
+          }, 35);
+        }
+        var prev = document.getElementById('vkbd-preview');
+        if (prev) {
+          prev.textContent = 'Sent key: ' + k.label;
+        }
+      });
+      rowEl.appendChild(btn);
+    });
+    rowsContainer.appendChild(rowEl);
+  });
+}
+
+function openVirtualKeyboard() {
+  if (!isInGame) return;
+  if (_shellDrawerOpen) {
+    closeShellDrawer();
+  }
+  buildVirtualKeyboard();
+  _virtualKeyboardOpen = true;
+  var osk = document.getElementById('virtual-keyboard-overlay');
+  if (osk) {
+    osk.classList.add('is-open');
+  }
+  if (typeof Module !== 'undefined' && typeof Module.setShellInputCapture === 'function') {
+    Module.setShellInputCapture(true);
+  }
+  Navigation.push(Views.VirtualKeyboard);
+  Navigation.start();
+}
+
+function closeVirtualKeyboard() {
+  if (!_virtualKeyboardOpen) return;
+  _virtualKeyboardOpen = false;
+  var osk = document.getElementById('virtual-keyboard-overlay');
+  if (osk) {
+    osk.classList.remove('is-open');
+  }
+  Navigation.stop();
+  Navigation.pop();
+  if (typeof Module !== 'undefined' && typeof Module.setShellInputCapture === 'function') {
+    Module.setShellInputCapture(false);
+  }
+  $('#wasm_module').focus();
+}
+
+function initShellOverlayOnStreamStart() {
+  var hoverZone = document.getElementById('shell-drawer-hover-zone');
+  if (hoverZone) {
+    hoverZone.classList.add('is-streaming');
+  }
+  if (typeof Module === 'undefined' || typeof Module.sendShellCommand !== 'function') {
+    fetchShellStateHttpFallback();
+  }
+  updateShellDrawerDOM(_shellLastState);
+}
+
+function resetShellOverlayOnStreamStop() {
+  window._suppressNextAutoLaunch = true;
+  var hoverZone = document.getElementById('shell-drawer-hover-zone');
+  if (hoverZone) {
+    hoverZone.classList.remove('is-streaming');
+  }
+  if (_shellDrawerOpen) {
+    closeShellDrawer();
+  }
+  if (_virtualKeyboardOpen) {
+    closeVirtualKeyboard();
+  }
+}
+
+$(document).ready(function() {
+  var hoverZone = document.getElementById('shell-drawer-hover-zone');
+  if (hoverZone) {
+    hoverZone.addEventListener('mouseenter', function() {
+      if (!isInGame || _shellDrawerOpen) return;
+      clearTimeout(_shellHoverTimer);
+      _shellHoverTimer = setTimeout(function() {
+        openShellDrawer();
+      }, 220);
+    });
+    hoverZone.addEventListener('mouseleave', function() {
+      clearTimeout(_shellHoverTimer);
+    });
+    hoverZone.addEventListener('click', function() {
+      if (isInGame) {
+        openShellDrawer();
+      }
+    });
+  }
+
+  $('#shell-drawer-overlay').on('click', function(ev) {
+    if (ev.target && ev.target.id === 'shell-drawer-overlay') {
+      closeShellDrawer();
+    }
+  });
+
+  $('#shellBtnReturnHome').on('click', function() {
+    sendShellCmd('RETURN_HOME');
+    closeShellDrawer();
+    snackbarLog('Returning to Console Home (Game audio ducked to 15%)');
+  });
+
+  $('#shellBtnResumeGame').on('click', function() {
+    sendShellCmd('RESUME_GAME');
+    closeShellDrawer();
+    snackbarLog('Resuming active game');
+  });
+
+  $('#shellBtnVirtualKeyboard').on('click', function() {
+    openVirtualKeyboard();
+  });
+
+  $('#shellBtnMouseMode').on('click', function() {
+    if (_shellMouseMode === 'AUTO') {
+      _shellMouseMode = 'POINTER';
+    } else if (_shellMouseMode === 'POINTER') {
+      _shellMouseMode = 'CONTROLLER';
+    } else {
+      _shellMouseMode = 'AUTO';
+    }
+    if (typeof Module !== 'undefined' && typeof Module.setShellMouseMode === 'function') {
+      Module.setShellMouseMode(_shellMouseMode);
+    }
+    sendShellCmd('SET_CURSOR_MODE', _shellMouseMode);
+    updateShellDrawerDOM(_shellLastState);
+  });
+
+  $('#shellBtnAudioDuck').on('click', function() {
+    var nextDuck = !_shellLastState.audio_ducked;
+    _shellLastState.audio_ducked = nextDuck;
+    sendShellCmd('SET_AUDIO_DUCKING', nextDuck ? 'true' : 'false');
+    updateShellDrawerDOM(_shellLastState);
+  });
+
+  $('#shellBtnPerfStats').on('click', function() {
+    if (typeof Module !== 'undefined' && typeof Module.toggleStats === 'function') {
+      Module.toggleStats();
+    }
+    closeShellDrawer();
+  });
+
+  $('#shellBtnForceKill').on('click', function() {
+    sendShellCmd('FORCE_KILL');
+    closeShellDrawer();
+    snackbarLog('Force closing active game...');
+  });
+
+  $('#shellBtnDisconnect').on('click', function() {
+    closeShellDrawer();
+    if (typeof Module !== 'undefined' && typeof Module.stopStream === 'function') {
+      Module.stopStream();
+    }
+  });
+
+  // Fallback JS Gamepad Back+Start (800ms) detector when using prebuilt WASM without C++ hook
+  var _jsComboHoldStart = 0;
+  var _jsComboLatched = false;
+  setInterval(function() {
+    if (!isInGame) return;
+    if (typeof Module !== 'undefined' && typeof Module.setShellInputCapture === 'function') {
+      return; // C++ gamepad.cpp handles 80ms grace + 800ms hold natively
+    }
+    var pads = navigator.getGamepads ? navigator.getGamepads() : [];
+    var bothHeld = false;
+    for (var i = 0; i < pads.length; i++) {
+      var gp = pads[i];
+      if (gp && gp.connected && gp.buttons && gp.buttons.length >= 10) {
+        if (gp.buttons[8] && gp.buttons[8].pressed && gp.buttons[9] && gp.buttons[9].pressed &&
+            !(gp.buttons[4] && gp.buttons[4].pressed) && !(gp.buttons[5] && gp.buttons[5].pressed)) {
+          bothHeld = true;
+          break;
+        }
+      }
+    }
+    if (bothHeld) {
+      if (_jsComboHoldStart === 0) {
+        _jsComboHoldStart = Date.now();
+      } else if (!_jsComboLatched && (Date.now() - _jsComboHoldStart) >= 800) {
+        _jsComboLatched = true;
+        toggleShellDrawer();
+      }
+    } else {
+      _jsComboHoldStart = 0;
+      _jsComboLatched = false;
+    }
+  }, 50);
 });

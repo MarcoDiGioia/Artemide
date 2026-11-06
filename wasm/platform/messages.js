@@ -285,6 +285,9 @@ function handleMessage(msg) {
   console.log('%c[messages.js, handleMessage]', 'color: gray;', 'Message data: ', msg);
   // If it's a recognized event, notify the appropriate function
   if (msg.indexOf('streamTerminated: ') === 0) {
+    if (typeof resetShellOverlayOnStreamStop === 'function') {
+      resetShellOverlayOnStreamStop();
+    }
     // Release the audio scheduler of the Web Audio backend, which is a no-op for the EMSS backend
     stopAudioScheduler();
     // Remove the on-screen overlays
@@ -363,6 +366,9 @@ function handleMessage(msg) {
     $('body').css('backgroundColor', 'transparent');
     $('#wasm_module').css('display', '');
     $('#wasm_module').focus();
+    if (typeof initShellOverlayOnStreamStart === 'function') {
+      initShellOverlayOnStreamStart();
+    }
   } else if (msg.indexOf('ProgressMsg: ') === 0) {
     // Show progress message under loading spinner
     $('#loadingSpinnerMessage').text(translateBackendMessage(msg.replace('ProgressMsg: ', '')));
@@ -428,5 +434,21 @@ function handleMessage(msg) {
   } else if (msg.indexOf('mouseEmulationOff') === 0) {
     // Show mouse emulation disable status as notification
     snackbarLogLong('Mouse emulation is deactivated');
+  } else if (msg === 'shellDrawerToggle') {
+    if (typeof toggleShellDrawer === 'function') {
+      toggleShellDrawer();
+    }
+  } else if (msg.indexOf('ShellState: ') === 0) {
+    if (typeof handleShellStateMessage === 'function') {
+      handleShellStateMessage(msg.substring('ShellState: '.length));
+    }
+  } else if (msg.indexOf('CursorHint: ') === 0) {
+    if (typeof handleShellCursorHintMessage === 'function') {
+      handleShellCursorHintMessage(msg.substring('CursorHint: '.length));
+    }
+  } else if (msg.indexOf('ShellEvent: ') === 0) {
+    if (typeof handleShellEventMessage === 'function') {
+      handleShellEventMessage(msg.substring('ShellEvent: '.length));
+    }
   }
 }

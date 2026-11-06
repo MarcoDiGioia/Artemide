@@ -90,6 +90,21 @@ void MoonlightInstance::ClConnectionStatusUpdate(int connectionStatus) {
   }
 }
 
+void MoonlightInstance::ClShellMessage(unsigned short opcode, const char* jsonPayload, int length) {
+  if (!jsonPayload || length <= 0) {
+    return;
+  }
+  std::string json(jsonPayload, static_cast<size_t>(length));
+  if (opcode == SHELL_PKT_STATE) {
+    PostToJsAsync(std::string("ShellState: ") + json);
+  } else if (opcode == SHELL_PKT_CURSOR_HINT) {
+    applyShellCursorHint(json);
+    PostToJsAsync(std::string("CursorHint: ") + json);
+  } else if (opcode == SHELL_PKT_EVENT) {
+    PostToJsAsync(std::string("ShellEvent: ") + json);
+  }
+}
+
 CONNECTION_LISTENER_CALLBACKS MoonlightInstance::s_ClCallbacks = {
   .stageStarting = MoonlightInstance::ClStageStarting,
   .stageFailed = MoonlightInstance::ClStageFailed,
@@ -98,4 +113,5 @@ CONNECTION_LISTENER_CALLBACKS MoonlightInstance::s_ClCallbacks = {
   .logMessage = MoonlightInstance::ClLogMessage,
   .rumble = MoonlightInstance::ClControllerRumble,
   .connectionStatusUpdate = MoonlightInstance::ClConnectionStatusUpdate,
+  .shellMessage = MoonlightInstance::ClShellMessage,
 };

@@ -159,6 +159,7 @@ class MoonlightInstance {
   static void ClLogMessage(const char* format, ...);
   static void ClControllerRumble(unsigned short controllerNumber, unsigned short lowFreqMotor, unsigned short highFreqMotor);
   static void ClConnectionStatusUpdate(int connectionStatus);
+  static void ClShellMessage(unsigned short opcode, const char* jsonPayload, int length);
 
   void DidChangeFocus(bool got_focus);
   bool InitializeRenderingSurface(int width, int height);
@@ -325,6 +326,11 @@ void toggleStats();
 void stun(int callbackId);
 void pair(int callbackId, std::string serverMajorVersion, std::string address, int httpPort, std::string randomNumber, std::string uniqueId);
 void wakeOnLan(int callbackId, std::string macAddress);
+
+void sendShellCommand(std::string json);
+void setShellInputCapture(bool captured);
+void setShellMouseMode(std::string mode);
+void applyShellCursorHint(const std::string& json);
 
 EM_BOOL handleKeyDown(int eventType, const EmscriptenKeyboardEvent* keyEvent, void* userData);
 EM_BOOL handleKeyUp(int eventType, const EmscriptenKeyboardEvent* keyEvent, void* userData);

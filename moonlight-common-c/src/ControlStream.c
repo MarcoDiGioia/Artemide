@@ -657,7 +657,7 @@ static bool sendMessageEnet(short ptype, short paylen, const void* payload, uint
     if (encryptedControlStream) {
         PNVCTL_ENCRYPTED_PACKET_HEADER encPacket;
         PNVCTL_ENET_PACKET_HEADER_V2 packet;
-        char tempBuffer[256];
+        char tempBuffer[4096];
 
         enetPacket = enet_packet_create(NULL,
                                         sizeof(*encPacket) + AES_GCM_TAG_LENGTH + sizeof(*packet) + paylen,
@@ -1216,6 +1216,15 @@ static void controlReceiveThreadFunc(void* context) {
             // Process client callbacks in a separate thread
             if (needsAsyncCallback(ctlHdr->type)) {
                 queueAsyncCallback(ctlHdr, packetLength);
+            }
+            else if (ctlHdr->type == SHELL_PKT_STATE ||
+                     ctlHdr->type == SHELL_PKT_CURSOR_HINT ||
+                     ctlHdr->type == SHELL_PKT_EVENT) {
+                if (ListenerCallbacks.shellMessage && packetLength >= (int)sizeof(*ctlHdr)) {
+                    const char* jsonPtr = (const char*)ctlHdr + sizeof(*ctlHdr);
+                    int jsonLen = packetLength - (int)sizeof(*ctlHdr);
+                    ListenerCallbacks.shellMessage(ctlHdr->type, jsonPtr, jsonLen);
+                }
             }
             else if (ctlHdr->type == packetTypes[IDX_TERMINATION]) {
                 BYTE_BUFFER bb;
@@ -1969,4 +1978,21 @@ bool LiGetHdrMetadata(PSS_HDR_METADATA metadata) {
 
     *metadata = hdrMetadata;
     return true;
+}
+
+int LiSendShellMessage(unsigned short opcode, const char* jsonPayload) {
+    if (AppVersionQuad[0] < 5 || peer == NULL || jsonPayload == NULL) {
+        return -1;
+    }
+
+    size_t len = strlen(jsonPayload);
+    if (len > 3584) {
+        len = 3584;
+    }
+
+    if (!sendMessageAndForget((short)opcode, (short)len, jsonPayload, CTRL_CHANNEL_GENERIC, ENET_PACKET_FLAG_RELIABLE, false)) {
+        return -1;
+    }
+
+    return 0;
 }

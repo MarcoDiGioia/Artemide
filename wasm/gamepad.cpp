@@ -33,6 +33,52 @@ bool rumbleFeedbackSwitch = false;
 bool mouseEmulationSwitch = false;
 bool mouseEmulationActive = false;
 
+// Console Shell overlay capture & dynamic mouse mode state
+static std::atomic<bool> shellInputCaptured{false};
+static std::string shellMouseMode = "AUTO"; // "AUTO", "POINTER", "CONTROLLER"
+static std::atomic<bool> shellHostHintPointer{false};
+
+void setShellInputCapture(bool captured) {
+  shellInputCaptured.store(captured);
+}
+
+void setShellMouseMode(std::string mode) {
+  shellMouseMode = mode;
+  if (mode == "POINTER") {
+    mouseEmulationActive = true;
+    PostToJs("mouseEmulationOn");
+  } else if (mode == "CONTROLLER") {
+    mouseEmulationActive = false;
+    PostToJs("mouseEmulationOff");
+  } else {
+    mouseEmulationActive = shellHostHintPointer.load();
+  }
+}
+
+void applyShellCursorHint(const std::string& json) {
+  const bool wantPointer = (json.find("\"POINTER\"") != std::string::npos);
+  shellHostHintPointer.store(wantPointer);
+  if (shellMouseMode == "AUTO") {
+    mouseEmulationActive = wantPointer;
+  }
+}
+
+// State machine for Back + Start (80 ms grace window, 800 ms hold timer)
+enum class BackStartComboPhase {
+  Idle,
+  GraceSingle,
+  ComboHold,
+  ComboFired,
+  Passthrough,
+};
+
+struct BackStartComboTracker {
+  BackStartComboPhase phase = BackStartComboPhase::Idle;
+  std::chrono::steady_clock::time_point phaseStart{};
+};
+
+static BackStartComboTracker backStartTrackers[kMaxControllers];
+
 // Flags for gamepad to track face buttons state
 bool flipABfaceButtonsSwitch = false;
 bool flipXYfaceButtonsSwitch = false;
@@ -454,11 +500,88 @@ void MoonlightInstance::PollGamepads() {
       comboTriggered[gamepadID] = false;
     }
 
+    // Back + Start Console Drawer State Machine (80 ms grace period, 800 ms hold timer)
+    short effectiveButtonFlags = buttonFlags;
+    {
+      auto& tracker = backStartTrackers[gamepadID];
+      const short bsMask = (BACK_FLAG | PLAY_FLAG);
+      const short bsPressed = (buttonFlags & bsMask);
+      const auto now = std::chrono::steady_clock::now();
+
+      if (bsPressed == 0) {
+        tracker.phase = BackStartComboPhase::Idle;
+      } else {
+        switch (tracker.phase) {
+          case BackStartComboPhase::Idle:
+            if (bsPressed == bsMask) {
+              tracker.phase = BackStartComboPhase::ComboHold;
+            } else {
+              tracker.phase = BackStartComboPhase::GraceSingle;
+            }
+            tracker.phaseStart = now;
+            effectiveButtonFlags &= ~bsMask;
+            break;
+
+          case BackStartComboPhase::GraceSingle: {
+            const auto elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(now - tracker.phaseStart).count();
+            if (bsPressed == bsMask) {
+              tracker.phase = BackStartComboPhase::ComboHold;
+              tracker.phaseStart = now;
+              effectiveButtonFlags &= ~bsMask;
+            } else if (elapsedMs < 80) {
+              // Suppress Back/Start during 80 ms grace window so simultaneous presses don't leak to host
+              effectiveButtonFlags &= ~bsMask;
+            } else {
+              // Grace window expired with only one button pressed -> flush to host
+              tracker.phase = BackStartComboPhase::Passthrough;
+            }
+            break;
+          }
+
+          case BackStartComboPhase::ComboHold: {
+            effectiveButtonFlags &= ~bsMask;
+            if (bsPressed != bsMask) {
+              // Released one of the buttons before 800 ms
+              tracker.phase = BackStartComboPhase::Passthrough;
+            } else {
+              const auto holdMs = std::chrono::duration_cast<std::chrono::milliseconds>(now - tracker.phaseStart).count();
+              if (holdMs >= 800) {
+                tracker.phase = BackStartComboPhase::ComboFired;
+                // Clear all held inputs on the host before toggling the local Drawer
+                LiSendMultiControllerEvent(gamepadID, activeGamepadMask, 0, 0, 0, 0, 0, 0, 0);
+                bool nextCapture = !shellInputCaptured.load();
+                shellInputCaptured.store(nextCapture);
+                PostToJs("shellDrawerToggle");
+              }
+            }
+            break;
+          }
+
+          case BackStartComboPhase::ComboFired:
+            effectiveButtonFlags &= ~bsMask;
+            break;
+
+          case BackStartComboPhase::Passthrough:
+            if (bsPressed == bsMask) {
+              tracker.phase = BackStartComboPhase::ComboHold;
+              tracker.phaseStart = now;
+              effectiveButtonFlags &= ~bsMask;
+            }
+            break;
+        }
+      }
+    }
+
+    // While the Console Shell Drawer or Virtual Keyboard is open, capture controller input locally
+    if (shellInputCaptured.load()) {
+      continue;
+    }
+
     // Check if the mouse emulation switch is checked
     if (mouseEmulationSwitch) {
       static std::map<int, std::chrono::time_point<std::chrono::steady_clock>> activatePressTimes;
-      // Toggle mouse emulation on and off based on how long the PLAY/START button is pressed
-      if (buttonFlags & PLAY_FLAG) {
+      // Toggle mouse emulation on and off based on how long the PLAY/START button is pressed (only when BACK is not pressed)
+      if ((effectiveButtonFlags & PLAY_FLAG) && !(buttonFlags & BACK_FLAG)) {
         if (activatePressTimes.find(gamepadID) == activatePressTimes.end()) {
           activatePressTimes[gamepadID] = std::chrono::steady_clock::now();
         }
@@ -484,8 +607,8 @@ void MoonlightInstance::PollGamepads() {
         // If the PLAY/START button is not pressed, reset PLAY/START press time
         activatePressTimes[gamepadID] = std::chrono::steady_clock::now();
       }
-    } else {
-      // Deactivate mouse emulation if the mouse emulation switch is unchecked
+    } else if (shellMouseMode == "CONTROLLER") {
+      // Deactivate mouse emulation if forced to controller mode
       mouseEmulationActive = false;
     }
 
@@ -513,21 +636,21 @@ void MoonlightInstance::PollGamepads() {
       LiSendScrollEvent(static_cast<int>(scrollYDelta));
 
       // Face Buttons values are mapped to control mouse buttons
-      if (buttonFlags & (A_FLAG | LB_FLAG)) {
+      if (effectiveButtonFlags & (A_FLAG | LB_FLAG)) {
         // Send a mouse button press event for the left button
         LiSendMouseButtonEvent(BUTTON_ACTION_PRESS, BUTTON_LEFT);
       } else {
         // Send a mouse button release event for the left button
         LiSendMouseButtonEvent(BUTTON_ACTION_RELEASE, BUTTON_LEFT);
       }
-      if (buttonFlags & (X_FLAG | Y_FLAG)) {
+      if (effectiveButtonFlags & (X_FLAG | Y_FLAG)) {
         // Send a mouse button press event for the Middle button
         LiSendMouseButtonEvent(BUTTON_ACTION_PRESS, BUTTON_MIDDLE);
       } else {
         // Send a mouse button release event for the Middle button
         LiSendMouseButtonEvent(BUTTON_ACTION_RELEASE, BUTTON_MIDDLE);
       }
-      if (buttonFlags & (B_FLAG | RB_FLAG)) {
+      if (effectiveButtonFlags & (B_FLAG | RB_FLAG)) {
         // Send a mouse button press event for the Right button
         LiSendMouseButtonEvent(BUTTON_ACTION_PRESS, BUTTON_RIGHT);
       } else {
@@ -537,7 +660,7 @@ void MoonlightInstance::PollGamepads() {
     } else {
       // If mouse emulation is inactive, then send gamepad input to the desired handler (acts as a gamepad)
       LiSendMultiControllerEvent(
-        gamepadID, activeGamepadMask, buttonFlags, leftTrigger,
+        gamepadID, activeGamepadMask, effectiveButtonFlags, leftTrigger,
         rightTrigger, leftStickX, leftStickY, rightStickX, rightStickY);
     }
   }

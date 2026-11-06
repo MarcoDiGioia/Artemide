@@ -1712,7 +1712,11 @@ const Views = {
     back: function() {
       resolveElement('goBackBtn').click();
     },
-    press: function() {},
+    press: function() {
+      if (typeof toggleAutoLaunchForAppCard === 'function') {
+        toggleAutoLaunchForAppCard(resolveElement(this.view.current()));
+      }
+    },
     switch: function() {
       this.view.currentCardRow(6);
     },
@@ -1749,7 +1753,11 @@ const Views = {
     back: function() {
       resolveElement('goBackBtn').click();
     },
-    press: function() {},
+    press: function() {
+      if (typeof toggleAutoLaunchForAppCard === 'function') {
+        toggleAutoLaunchForAppCard(resolveElement(this.view.current()));
+      }
+    },
     switch: function() {
       focusElement(this.view.current());
     },
@@ -1908,6 +1916,92 @@ const Views = {
     leave: function() {
       unmark(this.view.current());
       setTimeout(() => blurElement(this.view.current()), 100);
+    },
+  },
+  ShellDrawer: {
+    view: new ListView(() => {
+      const items = Array.from(document.querySelectorAll('#shell-actions-list .shell-action-btn'));
+      const winItems = Array.from(document.querySelectorAll('#shell-window-list .shell-window-item'));
+      return items.concat(winItems);
+    }),
+    up: function() {
+      this.view.prev();
+      focusElement(this.view.current());
+    },
+    down: function() {
+      this.view.next();
+      focusElement(this.view.current());
+    },
+    left: function() {},
+    right: function() {},
+    accept: function() {
+      clickElement(this.view.current());
+    },
+    back: function() {
+      if (typeof closeShellDrawer === 'function') {
+        closeShellDrawer();
+      }
+    },
+    press: function() {
+      if (typeof closeShellDrawer === 'function') {
+        closeShellDrawer();
+      }
+    },
+    switch: function() {
+      focusElement(this.view.current());
+    },
+    enter: function() {
+      this.view.index = 0;
+      mark(this.view.current());
+      setTimeout(() => focusElement(this.view.current()), 50);
+    },
+    leave: function() {
+      unmark(this.view.current());
+      setTimeout(() => blurElement(this.view.current()), 50);
+    },
+  },
+  VirtualKeyboard: {
+    view: new ListView(() => Array.from(document.querySelectorAll('#vkbd-rows .vkbd-key'))),
+    up: function() {
+      this.view.prevCardRow(11);
+      focusElement(this.view.current());
+    },
+    down: function() {
+      this.view.nextCardRow(11);
+      focusElement(this.view.current());
+    },
+    left: function() {
+      this.view.prev();
+      focusElement(this.view.current());
+    },
+    right: function() {
+      this.view.next();
+      focusElement(this.view.current());
+    },
+    accept: function() {
+      clickElement(this.view.current());
+    },
+    back: function() {
+      if (typeof closeVirtualKeyboard === 'function') {
+        closeVirtualKeyboard();
+      }
+    },
+    press: function() {
+      if (typeof closeVirtualKeyboard === 'function') {
+        closeVirtualKeyboard();
+      }
+    },
+    switch: function() {
+      focusElement(this.view.current());
+    },
+    enter: function() {
+      this.view.index = 0;
+      mark(this.view.current());
+      setTimeout(() => focusElement(this.view.current()), 50);
+    },
+    leave: function() {
+      unmark(this.view.current());
+      setTimeout(() => blurElement(this.view.current()), 50);
     },
   },
 };
